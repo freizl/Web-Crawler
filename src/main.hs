@@ -13,12 +13,18 @@ import Text.HTML.TagSoup
 
 main :: IO ()
 main = do
-    re <- mapM fetchVideoItem [2000..2100]
+    re <- mapM fetchVideoItem [2110..2120]
     outputToFile $ encode re
 
 fetchVideoItem :: MonadIO m => Int -> m VideoItem
 fetchVideoItem i = let aid = show i
                    in liftM (VideoItem aid) (httpGetTitle (genURL aid))
+
+--validResult :: VideoItem -> Bool
+--validResult (VideoItem _ t) = invalidResp == t
+
+--invalidResp :: L.ByteString
+--invalidResp = "良心网提示信息"
 
 -----------------------------------------------------
 
