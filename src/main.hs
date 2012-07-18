@@ -13,11 +13,24 @@ import qualified Data.ByteString as BS
 import Data.Aeson
 import Text.HTML.TagSoup
 import Text.HTML.TagSoup.Match
+import Text.HTML.TagSoup.Tree
 
 main :: IO ()
 main = do
-    r2 <- parseHttp yURL parsePageListUL
-    mapM_ (print . lbsToS) $ pageLinks r2
+    doc <- simpleHttp yURL 
+    let allLinks = pageLinks (parsePageListUL doc)
+        videoDiv = parseVideoDiv doc
+        videoLinks = fetchVideoLink videoDiv
+    mapM_ print videoLinks
+
+--    mapM_ (print . lbsToS) allLinks
+--    mapM_ print $ partitions isOpenForVideoLink videoDiv
+--    mapM_ print videoLinks
+
+fetchVideoLink xs = [x | x <- (universeTree $ tagTree xs), isVideoLink x ]
+                    where isVideoLink (TagBranch n as _) = hasAttrValue' ("class","title") as
+                          isVideoLink _ = False
+
 
 fetchVideoItem :: MonadIO m => Int -> m VideoItem
 fetchVideoItem i = let aid = show i
@@ -72,7 +85,7 @@ parseHttp :: MonadIO m => URL -> (L.ByteString -> [Tag L.ByteString]) -> m [Tag 
 parseHttp url fn = liftM fn (simpleHttp url)
 
 
----------------- pagelist a
+---------------- //ul[class="pagelist"]/li/a[href]
 
 pageLinks :: [Tag L.ByteString] -> [L.ByteString]
 pageLinks = map fromAttrHref . filter isPageLink
@@ -88,11 +101,50 @@ isOpenPageListUL = tagOpen isUL hasPageListClass
                          hasPageListClass = anyAttr pageListClass
                          pageListClass (n, v) = n == "class" && v == "pagelist" 
 
+-- | If Tag has a attr 
+hasAttrTag name (TagOpen _ xs) = hasAttr name xs
+
 hasAttr :: Eq str => str -> [Attribute str] -> Bool
 hasAttr name = anyAttrName (== name)
 
+
+-- | If Tag has a attr value
+hasAttrValueTag attr (TagOpen _ xs) = hasAttrValue' attr xs
+
+hasAttrValue' (name, value) attrs = anyAttr eqAttr attrs
+                                    where eqAttr (n,v) = name == n && value == v
+                 
 fromAttrHref :: Tag L.ByteString -> L.ByteString
 fromAttrHref = fromAttrib "href"
+
+
+---------------- //div[class="right_video_nr01"]/ul/li/a[class="title"]
+
+-- | //div[class="right_video_nr01"]
+
+type Str = L.ByteString
+
+isOpenFor :: Str -> (Str, Str) -> Tag L.ByteString -> Bool
+isOpenFor name (attrName, attrValue) = tagOpen (== name) hasAttr
+    where hasAttr = anyAttr (\ (n, v) -> attrName == n && attrValue == v )
+
+isOpenForVideoDiv = isOpenFor "div" ("class", "right_video_nr01")
+isCloseForVideoDiv = isTagCloseName "div"
+
+parseOpenClose :: (Tag L.ByteString -> Bool)  -- Open For
+                  -> (Tag L.ByteString -> Bool)  -- Close For      
+                  -> [Tag L.ByteString]
+                  -> [Tag L.ByteString]
+parseOpenClose open close tags = takeWhile (not . close) $
+                                dropWhile (not . open) tags
+
+parseVideoDiv doc = parseOpenClose isOpenForVideoDiv isCloseForVideoDiv (parseTags doc)
+
+-- | THIS IS WRONG
+parseVideoLinks = getTagContent "a" 
+                  (anyAttr (\ (n, v) -> n == "class" && v == "title"))
+
+isOpenForVideoLink = isOpenFor "a" ("class", "title")
 
 -------------------------
 
