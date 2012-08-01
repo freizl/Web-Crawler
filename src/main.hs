@@ -16,7 +16,7 @@ import Text.HTML.TagSoup.Match
 import Text.HTML.TagSoup.Tree
 
 main :: IO ()
-main = do
+main2 = do
     doc <- simpleHttp yURL 
     let allLinks = pageLinks (parsePageListUL doc)
         videoDiv = parseVideoDiv doc
@@ -36,11 +36,17 @@ fetchVideoItem :: MonadIO m => Int -> m VideoItem
 fetchVideoItem i = let aid = show i
                    in liftM (VideoItem aid) (httpGetTitle (getURL aid))
 
---validResult :: VideoItem -> Bool
---validResult (VideoItem _ t) = invalidResp == t
+-----------------------------------------------------
 
---invalidResp :: L.ByteString
---invalidResp = "良心网提示信息"
+ls :: [Int]
+ls = [200..300]
+bruceForceFetch :: IO ()
+bruceForceFetch = let urls = map (getURL . show) ls
+                      titles = mapM httpGetTitle urls
+                  in titles >>= mapM_ lPrintTuple . zip urls
+lPrintTuple (a,b) = putStr a >> L.putStr "," >> L.putStrLn b
+
+main = bruceForceFetch
 
 -----------------------------------------------------
 
@@ -61,6 +67,7 @@ getURL i = baseURL ++ i
 
 
 -------------------------------------------------------
+
 type URL = String
 type TitleTag = Tag L.ByteString
 type TitleValue = L.ByteString
@@ -155,3 +162,11 @@ bsToS ::  BS.ByteString -> String
 bsToS = T.unpack . T.decodeUtf8
 
 lbsToS = bsToS . lbsToStrickBS
+
+---------------------------
+
+--validResult :: VideoItem -> Bool
+--validResult (VideoItem _ t) = invalidResp == t
+
+--invalidResp :: L.ByteString
+--invalidResp = "良心网提示信息"
